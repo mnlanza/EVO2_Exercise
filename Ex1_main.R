@@ -99,7 +99,7 @@ heatmap_plot <- ggplot(df_plot, aes(Var1, Var2, fill = Freq)) +
   geom_tile() +
   geom_text(aes(label = sprintf("%.2f", Freq))) +
   scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = 0, name = "Δ log-L") +
-  labs(title = "Log-Likelihood Differences Between Variants", x = "", y = "") +
+  labs(title = "Log-Likelihood Differences Between Variants (col-row)", x = "", y = "") +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 

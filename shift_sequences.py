@@ -39,18 +39,15 @@ def main():
     input_file = "raw_data/gene_variants.fasta"
     sequences = read_fasta(input_file)
     
-    # Get the headers in order
-    headers = list(sequences.keys())
-    
     # Get the 83_S1 sequence that we'll use for shifting
     s1_sequence = sequences['>83_S1']
     
-    # Create new sequences dictionary with first two sequences unchanged
+    # Create new sequences dictionary with new headers
     new_sequences = {
-        headers[0]: sequences[headers[0]],  # 83_S1
-        headers[1]: sequences[headers[1]],  # 83_S2
-        headers[2]: shift_sequence(s1_sequence, 1),  # Replace 83_L with shifted 83_S1
-        headers[3]: shift_sequence(s1_sequence, 2)   # Replace 83_Stop with shifted 83_S1
+        '>83_S1': sequences['>83_S1'],  # Keep original S1
+        '>83_S2': sequences['>83_S2'],  # Keep original S2
+        '>83_S1_shifted1r': shift_sequence(s1_sequence, 1),  # New header for shift 1
+        '>83_S1_shifted2r': shift_sequence(s1_sequence, 2)   # New header for shift 2
     }
     
     # Write the new sequences to a file

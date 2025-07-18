@@ -1,0 +1,23 @@
+Found 1 CUDA devices:
+  Device 0: NVIDIA H100 80GB HBM3
+loading Evo2 model: evo2_7b
+Loading model from /mnt/disks/share/models/evo2_7b/evo2_7b.pt...
+Loading config from configs/evo2-7b-1m.yml...
+  0%|          | 0/32 [00:00<?, ?it/s] 41%|████      | 13/32 [00:00<00:00, 127.47it/s]100%|██████████| 32/32 [00:00<00:00, 203.35it/s]
+Extra keys in state_dict: {'unembed.weight', 'blocks.24.mixer.dense._extra_state', 'blocks.10.mixer.dense._extra_state', 'blocks.23.mixer.mixer.filter.t', 'blocks.2.mixer.mixer.filter.t', 'blocks.20.mixer.mixer.filter.t', 'blocks.10.mixer.attn._extra_state', 'blocks.31.mixer.dense._extra_state', 'blocks.13.mixer.mixer.filter.t', 'blocks.9.mixer.mixer.filter.t', 'blocks.6.mixer.mixer.filter.t', 'blocks.3.mixer.dense._extra_state', 'blocks.16.mixer.mixer.filter.t', 'blocks.24.mixer.attn._extra_state', 'blocks.3.mixer.attn._extra_state', 'blocks.27.mixer.mixer.filter.t', 'blocks.30.mixer.mixer.filter.t', 'blocks.31.mixer.attn._extra_state', 'blocks.17.mixer.attn._extra_state', 'blocks.17.mixer.dense._extra_state'}
+model loaded.
+reading sequences from /mnt/disks/share/jobs/shifting-positions-v1/input.fasta
+processing 4 sequences...
+  processing sequence: 83_S1 (length: 2625)
+    logits shape: torch.Size([1, 2625, 512])
+  processing sequence: 83_S2 (length: 2625)
+    logits shape: torch.Size([1, 2625, 512])
+  processing sequence: 83_L (length: 2625)
+    logits shape: torch.Size([1, 2625, 512])
+  processing sequence: 83_Stop (length: 2625)
+    logits shape: torch.Size([1, 2625, 512])
+  logits for 83_S1 saved to /mnt/disks/share/jobs/shifting-positions-v1/output/input_83_S1_logits.npy
+  logits for 83_S2 saved to /mnt/disks/share/jobs/shifting-positions-v1/output/input_83_S2_logits.npy
+  logits for 83_L saved to /mnt/disks/share/jobs/shifting-positions-v1/output/input_83_L_logits.npy
+  logits for 83_Stop saved to /mnt/disks/share/jobs/shifting-positions-v1/output/input_83_Stop_logits.npy
+processing complete.
