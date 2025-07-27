@@ -13,7 +13,6 @@ This repository contains scripts for analyzing gene variants using the EVO2 mode
 │   ├── evo2_analysis_functions.R # Helper functions for plots
 │   ├── handle_EVO2_output.r     # Functions to process EVO2 output
 │   ├── shift_sequences.py       # Script to create shifted sequences
-│   ├── generate_fasta_v1.py     # FASTA file generation utilities
 │   ├── generate_r_cods_v1.py    # Generate reverse complement sequences
 │   └── frameshift_fasta.py      # Script to handle frameshifts
 ├── raw_data/
