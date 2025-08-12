@@ -2,7 +2,11 @@
 suppressPackageStartupMessages({
 library(Biostrings)
 library(ggplot2)
+library(patchwork)
 })
+
+# Quiet NSE notes for ggplot2 and externally sourced helpers
+utils::globalVariables(c("pos","value","xmin","xmax","ymin","ymax","key","codon_i","get_logits"))
 #' Initialize dataframe with EVO2 probabilities, entropy, and log-likelihood
 
 #' @param EVO2_npy_file Path to the numpy file containing logits
@@ -28,6 +32,49 @@ initialize_df <- function(EVO2_npy_file, sequence_name, all_variants) {
       log2(prob_matrix[i, base_index])}, seq_vec, seq_along(seq_vec))
   prob_matrix$log_likelihood <- log_likelihood
   return(prob_matrix)
+}
+
+#' Common big-text theme for clarity
+big_theme <- function() {
+  theme_minimal(base_size = 16) +
+    theme(
+      plot.title = element_text(size = 20, face = "bold"),
+      axis.title = element_text(size = 18),
+      axis.text = element_text(size = 14),
+      legend.title = element_text(size = 16),
+      legend.text = element_text(size = 14),
+      legend.position = "right",
+      legend.box = "vertical",
+      legend.key = element_rect(fill = NA, colour = NA)
+    )
+}
+
+#' Helper theme to strip x-axis info for stacked plots (kept for bottom-only)
+strip_x <- function() {
+  theme(
+    axis.title.x = element_blank(),
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    plot.margin = margin(t = 5, r = 5, b = 0, l = 5)
+  )
+}
+
+#' Build rectangle dataframe to highlight positions
+#'
+#' @param index_rows Range of positions shown
+#' @param highlighted Positions to highlight
+highlight_rect_df <- function(index_rows, highlighted) {
+  positions <- intersect(index_rows, highlighted)
+  if (length(positions) == 0) {
+    return(data.frame())
+  }
+  data.frame(
+    xmin = positions - 0.5,
+    xmax = positions + 0.5,
+    ymin = -Inf,
+    ymax = Inf,
+    key  = factor("Highlighted")
+  )
 }
 
 #' Build dataframe for plotting
@@ -60,17 +107,24 @@ plot_entropy <- function(gene_name, gene_df, index_rows = 200:300, highlighted =
     index_rows <- sort(nrow(gene_df) - index_rows + 1)
   }
   plot_df <- build_plot_df(gene_df, "entropy", index_rows, highlighted)
-  ggplot(plot_df, aes(x = pos, y = value)) + 
-    geom_point(aes(color = factor(codon_i), size = is_high),
-               show.legend = c(color = TRUE, size = TRUE)) + 
+  rect_df <- highlight_rect_df(index_rows, highlighted)
+  p <- ggplot(plot_df, aes(x = pos, y = value)) +
+    geom_rect(data = rect_df,
+              aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax, fill = key),
+              inherit.aes = FALSE, alpha = 0.15, show.legend = TRUE) +
+    geom_point(aes(color = factor(codon_i)), size = 1.2, show.legend = TRUE) +
     scale_color_manual(name = "Codon position",
                       values = c("1" = "red", "2" = "orange", "3" = "green")) +
-    scale_size_manual(name = "Key positions",
-                     values = c(`FALSE` = 1.5, `TRUE` = 2.7)) +
+    scale_fill_manual(name = "Mutated region", values = c("Highlighted" = "#4C9AFF")) +
     labs(x = "Nucleotide position", y = "Entropy",
-         title = sprintf("Entropy across positions %d-%d (%s)", 
+         title = sprintf("Entropy across positions %d-%d (%s)",
                         min(index_rows), max(index_rows), gene_name)) +
-    theme_minimal() + theme(legend.position = "right", legend.box = "vertical")
+    big_theme() +
+    guides(
+      fill = guide_legend(override.aes = list(colour = NA)),
+      colour = guide_legend(override.aes = list(fill = NA))
+    )
+  p
 }
 
 #' Plot log-likelihood across positions
@@ -86,17 +140,24 @@ plot_log_likelihood <- function(gene_name, gene_df, index_rows = 200:300, highli
     index_rows <- sort(nrow(gene_df) - index_rows + 1)
   }
   plot_df <- build_plot_df(gene_df, "log_likelihood", index_rows, highlighted)
-  ggplot(plot_df, aes(x = pos, y = -value)) +
-    geom_point(aes(colour = factor(codon_i), size = is_high),
-               show.legend = c(color = TRUE, size = TRUE)) +
+  rect_df <- highlight_rect_df(index_rows, highlighted)
+  p <- ggplot(plot_df, aes(x = pos, y = -value)) +
+    geom_rect(data = rect_df,
+              aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax, fill = key),
+              inherit.aes = FALSE, alpha = 0.15, show.legend = TRUE) +
+    geom_point(aes(colour = factor(codon_i)), size = 1.2, show.legend = TRUE) +
     scale_color_manual(name = "Codon position",
                        values = c("1" = "red", "2" = "orange", "3" = "green")) +
-    scale_size_manual(name = "Key positions",
-                     values = c(`FALSE` = 1.5, `TRUE` = 2.7)) +
-    labs(x = "Nucleotide position", y = "Log-likelihood",
-         title = sprintf("-log-likelihood across positions %d-%d (%s)",
+    scale_fill_manual(name = "Mutated region", values = c("Highlighted" = "#4C9AFF")) +
+    labs(x = "Nucleotide position", y = "-Log-likelihood",
+         title = sprintf("-Log-likelihood across positions %d-%d (%s)",
                         min(index_rows), max(index_rows), gene_name)) +
-    theme_minimal() + theme(legend.position = "right", legend.box = "vertical")
+    big_theme() +
+    guides(
+      fill = guide_legend(override.aes = list(colour = NA)),
+      colour = guide_legend(override.aes = list(fill = NA))
+    )
+  p
 }
 
 #' Calculate probability of correct base prediction
@@ -109,7 +170,7 @@ probability_correct_base <- function(gene, df_gene, all_variants) {
   split_seq <- strsplit(as.character(all_variants[gene]), "")[[1]]
   correct_count <- 0
   
-  for (i in 1:length(split_seq)) {
+  for (i in seq_along(split_seq)) {
     max_column <- which.max(df_gene[i, 1:4])
     predicted_base <- c("A", "C", "G", "T")[max_column]
     if (predicted_base == split_seq[i]) {
@@ -145,19 +206,26 @@ plot_metric_diff <- function(ref_gene, target_gene, ref_df, target_df,
     is_high = index_rows %in% highlight
   )
   
-  ggplot(df, aes(x = pos, y = diff_vec)) +
-    geom_point(aes(colour = factor(codon_i), size = is_high),
-               show.legend = c(colour = TRUE, size = TRUE)) +
+  rect_df <- highlight_rect_df(index_rows, highlight)
+  p <- ggplot(df, aes(x = pos, y = diff_vec)) +
+    geom_rect(data = rect_df,
+              aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax, fill = key),
+              inherit.aes = FALSE, alpha = 0.15, show.legend = TRUE) +
+    geom_point(aes(colour = factor(codon_i)), size = 1.2, show.legend = TRUE) +
     scale_color_manual("Codon position",
                       values = c("1" = "red", "2" = "orange", "3" = "green")) +
-    scale_size_manual("Key positions",
-                     values = c(`FALSE` = 1.5, `TRUE` = 2.7)) +
+    scale_fill_manual(name = "Mutated region", values = c("Highlighted" = "#4C9AFF")) +
     labs(x = "Nucleotide position",
-         y = sprintf("Δ %s", gsub("_", " ", metric, fixed = TRUE)),
+         y = sprintf("Δ %s", ifelse(metric == "log_likelihood", "-Log-likelihood", "Entropy")),
          title = sprintf("%s difference: %s vs %s",
-                        gsub("_", " ", metric, fixed = TRUE),
+                        ifelse(metric == "log_likelihood", "-Log-likelihood", "Entropy"),
                         target_gene, ref_gene)) +
-    theme_minimal() + theme(legend.position = "right", legend.box = "vertical")
+    big_theme() +
+    guides(
+      fill = guide_legend(override.aes = list(colour = NA)),
+      colour = guide_legend(override.aes = list(fill = NA))
+    )
+  p
 }
 
 #' Save plot as PDF

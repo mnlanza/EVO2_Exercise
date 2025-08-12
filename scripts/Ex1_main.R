@@ -3,6 +3,7 @@ suppressPackageStartupMessages({
 library(optparse)
 library(Biostrings)
 library(ggplot2)
+library(patchwork)
 })
 
 source("~/Documents/basic_gyrae/scripts/handle_EVO2_output.r")
@@ -54,6 +55,7 @@ for (name in variant_names) {
 # === Plot Entropy & Log-Likelihood ===
 entropy_plots <- list()
 ll_plots <- list()
+stacked_single <- list()
 accuracy_results <- list()
 for (name in names(variant_dfs)) {
   df <- variant_dfs[[name]]
@@ -65,6 +67,11 @@ for (name in names(variant_dfs)) {
                                          index_rows = index_rows,
                                          highlighted = highlight, 
                                          reverse_comp = reverse_comp)
+  # Stack entropy and log-likelihood vertically for concise single plot
+  # Strip x-axis on top plot to remove fluff when stacked
+  stacked_single[[name]] <- ((entropy_plots[[name]] + strip_x()) / ll_plots[[name]]) +
+    plot_layout(heights = c(1, 1), guides = "collect") &
+    theme(legend.position = "right")
   accuracy_results[[name]] <- probability_correct_base(name, df, all_variants)
 }
 
@@ -102,6 +109,34 @@ for (name in variant_names[-1]) {
                                     reverse_comp = reverse_comp)
 }
 
+# Build stacked difference figures: all entropy diffs stacked; all ll diffs stacked
+entropy_diff_keys <- grep("^entropy_", names(diff_plots), value = TRUE)
+ll_diff_keys <- grep("^ll_", names(diff_plots), value = TRUE)
+
+stacked_entropy_diffs <- NULL
+stacked_ll_diffs <- NULL
+if (length(entropy_diff_keys) > 0) {
+  # Apply strip_x to all but the bottom plot
+  entropy_stack_list <- diff_plots[entropy_diff_keys]
+  if (length(entropy_stack_list) > 1) {
+    for (i in seq_len(length(entropy_stack_list) - 1)) {
+      entropy_stack_list[[i]] <- entropy_stack_list[[i]] + strip_x()
+    }
+  }
+  stacked_entropy_diffs <- wrap_plots(entropy_stack_list, ncol = 1, guides = "collect") &
+    theme(legend.position = "right")
+}
+if (length(ll_diff_keys) > 0) {
+  ll_stack_list <- diff_plots[ll_diff_keys]
+  if (length(ll_stack_list) > 1) {
+    for (i in seq_len(length(ll_stack_list) - 1)) {
+      ll_stack_list[[i]] <- ll_stack_list[[i]] + strip_x()
+    }
+  }
+  stacked_ll_diffs <- wrap_plots(ll_stack_list, ncol = 1, guides = "collect") &
+    theme(legend.position = "right")
+}
+
 # === Log-Likelihood Matrix & Heatmap ===
 total_ll <- sapply(variant_dfs, function(df) sum(df$log_likelihood))
 diff_matrix <- outer(total_ll, total_ll, "-")
@@ -112,24 +147,29 @@ heatmap_plot <- ggplot(df_plot, aes(Var1, Var2, fill = Freq)) +
   geom_text(aes(label = sprintf("%.2f", Freq))) +
   scale_fill_gradient2(low = "blue", mid = "white", high = "red", midpoint = 0, name = "Δ log-L") +
   labs(title = "Log-Likelihood Differences Between Variants (col-row)", x = "", y = "") +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  theme_minimal(base_size = 16) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        plot.title = element_text(size = 20, face = "bold"),
+        legend.title = element_text(size = 16),
+        legend.text = element_text(size = 14))
 
 # === Save All Plots ===
 save_pdfs <- function(output_dir, only_single = FALSE) {
   # Save single plots
-  for (name in names(entropy_plots)) {
-    save_as_pdf(entropy_plots[[name]], paste0("entropy_", name, ".pdf"), out_dir = paste0(output_dir,"/single"))
-    save_as_pdf(ll_plots[[name]], paste0("ll_", name, ".pdf"), out_dir= paste0(output_dir,"/single"))
+  for (name in names(stacked_single)) {
+    # Height scaled for two rows
+    save_as_pdf(stacked_single[[name]], paste0("", name, ".pdf"), out_dir = paste0(output_dir,"/single"), height = 10)
   }
   # Save heatmap
     save_as_pdf(heatmap_plot, "tot_ll.pdf", out_dir = paste0(output_dir, "/tot_ll"))
   
-  if (!only_single) {
-    # Save diff plots
-    for (name in names(diff_plots)) {
-      save_as_pdf(diff_plots[[name]], paste0(name, ".pdf"), out_dir = paste0(output_dir,"/compare"))
-    }
+  # Always save stacked difference figures (entropy and log-likelihood)
+  if (!is.null(stacked_entropy_diffs)) {
+    # scale height with number of panels (approx 3 inches per panel)
+    save_as_pdf(stacked_entropy_diffs, "entropy_diffs_stacked.pdf", out_dir = paste0(output_dir, "/compare"), height = max(6, 3 * length(entropy_diff_keys)))
+  }
+  if (!is.null(stacked_ll_diffs)) {
+    save_as_pdf(stacked_ll_diffs, "ll_diffs_stacked.pdf", out_dir = paste0(output_dir, "/compare"), height = max(6, 3 * length(ll_diff_keys)))
   }
 }
 
